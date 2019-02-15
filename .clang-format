@@ -1,0 +1,17 @@
+BasedOnStyle: LLVM
+IndentWidth: 4
+AlignAfterOpenBracket: true
+AlignConsecutiveAssignments: true
+AlignConsecutiveDeclarations: true
+AccessModifierOffset: -4
+FixNamespaceComments: true
+NamespaceIndentation: None
+PointerAlignment: Right
+SortUsingDeclarations: true
+SpaceAfterTemplateKeyword: false
+SpaceBeforeParens: ControlStatements
+SpaceInEmptyParentheses: false
+UseTab: Never
+AllowShortBlocksOnASingleLine: true
+AllowShortFunctionsOnASingleLine: true
+AlwaysBreakTemplateDeclarations: true
