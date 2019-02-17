@@ -2,8 +2,25 @@
 #define CPPEG_RULE_HPP
 
 #include "cppeg_common.hpp"
+#include "meta.hpp"
+#include "assertions.hpp"
+#include <optional>
+#include <variant>
+
 
 CPPEG_NAMESPACE_OPEN
+
+template<typename T>
+bool parse_success(T const &x) {
+    if constexpr (meta::is_optional_v<T>) {
+        return x.has_value();
+    } else if constexpr (meta::is_variant_v<T>) {
+        return !std::holds_alternative<std::monostate>(x);
+    } else {
+	debug_assert(false, "Unknown parse return type.");
+	return false;
+    }
+}
 
 template<typename R>
 struct Rule {
@@ -19,10 +36,10 @@ struct Rule {
     auto parse(InputStream<T> &inputStream) {
         inputStream.push(); // save current spot in stream
 
-	//pass the call through to the 'real' parser rule.
-	auto ret = self().parse_impl(inputStream);
+        // pass the call through to the 'real' parser rule.
+        auto ret = self().parse_impl(inputStream);
 
-        if (ret.has_value()) {
+        if (parse_success(ret)) {
             inputStream.pop();
         } else {
             inputStream.pop_reset();
@@ -30,8 +47,6 @@ struct Rule {
 
         return ret;
     }
-
-    // operators
 
 };
 
