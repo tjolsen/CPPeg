@@ -1,12 +1,12 @@
 #ifndef CPPEG_RULE_HPP
 #define CPPEG_RULE_HPP
 
-#include "cppeg_common.hpp"
-#include "meta.hpp"
 #include "assertions.hpp"
+#include "cppeg_common.hpp"
+#include "fwd_decls.hpp"
+#include "meta.hpp"
 #include <optional>
 #include <variant>
-
 
 CPPEG_NAMESPACE_OPEN
 
@@ -17,8 +17,8 @@ bool parse_success(T const &x) {
     } else if constexpr (meta::is_variant_v<T>) {
         return !std::holds_alternative<std::monostate>(x);
     } else {
-	debug_assert(false, "Unknown parse return type.");
-	return false;
+        //debug_assert(false, "Unknown parse return type.");
+        return false;
     }
 }
 
@@ -48,6 +48,11 @@ struct Rule {
         return ret;
     }
 
+    // attach a callback
+    template<typename F>
+    auto operator[](F func) const {
+        return CallbackRule<R, F>(*this, std::move(func));
+    }
 };
 
 CPPEG_NAMESPACE_CLOSE

@@ -1,5 +1,6 @@
 #include "cppeg.hpp"
 #include "catch.hpp"
+#include <iostream>
 using namespace cppeg;
 
 TEST_CASE("OrRule test: identical types") {
@@ -26,13 +27,19 @@ TEST_CASE("OrRule test: Two different types") {
     InputStream<> S(s);
 
     auto abb = Char<'a'> | "bb"_L;
+    auto bbc = "bb"_L | Char<'c'>;
 
     auto ret1 = abb.parse(S);
     auto ret2 = abb.parse(S);
-
+    
     CHECK(std::holds_alternative<char>(ret1));
     CHECK(std::holds_alternative<std::string>(ret2));
 
     CHECK(std::get<char>(ret1) == 'a');
     CHECK(std::get<std::string>(ret2) == "bb");
+
+    auto ret3 = bbc.parse(S);
+    CHECK(parse_success(ret3) == false);
+
+    std::cout << helpers::type_name<std::decay_t<decltype(ret3)>>() << "\n";
 }

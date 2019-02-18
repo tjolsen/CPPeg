@@ -122,8 +122,8 @@ public:
 
         constexpr auto subrule_return_types =
             tmpl::transform(raw_subrule_return_types, [](auto &&x) {
-                using xT = tmpl::head_type_t<std::decay_t<decltype(x)>>;
-		using ret_xT = meta::remove_optional_t<xT>;
+                using xT     = tmpl::head_type_t<std::decay_t<decltype(x)>>;
+                using ret_xT = meta::remove_optional_t<xT>;
                 return tmpl::type_list<ret_xT>{};
             });
 
@@ -189,6 +189,43 @@ auto operator|(Rule<L> const &lhs, OrRule<R...> const &rhs) {
     return helpers::ctor_splat<OrRule>(
         lhs, rhs.subrules, tmpl::arithmetic_sequence<sizeof...(R)>());
 }
+
+//======================================================================
+
+template<typename R, typename F>
+class CallbackRule : public Rule<CallbackRule<R, F>> {
+
+public:
+    CallbackRule(const Rule<R> &subrule, F &&func)
+        : subrule(subrule.self()), func(std::forward<F>(func)) {}
+
+    template<typename T>
+    auto parse_impl(InputStream<T> &in) {
+        auto ret                   = subrule.parse(in);
+        using callback_return_type = std::decay_t<decltype(func(ret))>;
+        constexpr bool cb_returns_void =
+            std::is_same_v<void, callback_return_type>;
+        using return_value_type =
+            std::conditional_t<cb_returns_void, null_parse,
+                               callback_return_type>;
+
+        std::optional<return_value_type> cbret;
+        if (parse_success(ret)) {
+            if constexpr (cb_returns_void) {
+                func(ret);
+                cbret = null_parse{};
+            } else {
+                cbret = func(ret);
+            }
+        }
+
+        return cbret;
+    }
+
+private:
+    R subrule;
+    F func;
+};
 
 CPPEG_NAMESPACE_CLOSE
 

@@ -2,6 +2,7 @@ set(SOURCE_FILES
   basic_rules.cpp
   and_rule.cpp
   or_rule.cpp
+  callback.cpp
   catch_main.cpp
   catch.hpp
   )
