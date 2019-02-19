@@ -31,41 +31,64 @@ struct AndRule : public Rule<AndRule<Subrules...>> {
         using optional_parse_result_types = tmpl::type_list<
             std::decay_t<decltype(std::declval<Subrules>().parse(in))>...>;
 
+        // compute the return types, pre-filtering
         constexpr auto parse_result_type_list =
             tmpl::transform(optional_parse_result_types{}, [](auto &&x) {
                 using xT = tmpl::head_type_t<decltype(x)>;
                 return tmpl::type_list<meta::remove_optional_t<xT>>{};
             });
 
-        // compute the final return type
+        // compute the list of return types, filtering out null_parse types.
+        // must keep track of the original position in the pre-filtering
+        // list, in order to grab the result from the correct parser.
+        constexpr auto parse_result_type_indices =
+            tmpl::zip(parse_result_type_list, indices);
+        constexpr auto filtered_list =
+            tmpl::select_if(parse_result_type_indices, [](auto &&x) {
+                return tmpl::unbox(x).type() != tmpl::type_list<null_parse>{};
+            });
+
+        constexpr auto filtered_types =
+            tmpl::transform(filtered_list, [](auto &&x) {
+                constexpr auto X = tmpl::unbox(std::decay_t<decltype(x)>{});
+                return X.type();
+            });
+
         using return_tuple_type =
-            std::decay_t<decltype(tmpl::as_tuple(parse_result_type_list))>;
+            std::decay_t<decltype(tmpl::as_tuple(filtered_types))>;
+
         std::optional<return_tuple_type> ret;
 
         // make a tuple of optionals to hold intermediate parses
         auto tmp_ret = tmpl::as_tuple(optional_parse_result_types{});
 
+        bool parse_success_sofar = true;
         tmpl::for_each(tmpl::zip(types, indices), [&](auto &&tv_list) {
+            if (!parse_success_sofar) {
+                return;
+            }
+
             auto tv    = tmpl::unbox(tv_list);
             using type = typename std::decay_t<decltype(tv)>::type_t;
             constexpr std::size_t I = tv.value();
 
             std::get<I>(tmp_ret) = std::get<I>(subrules).parse(in);
+            parse_success_sofar =
+                parse_success_sofar && parse_success(std::get<I>(tmp_ret));
         });
 
-        // Test if all parses succeeded.
-        bool all_has_value = true;
-        tmpl::for_each(indices, [&](auto x) {
-            constexpr auto I = static_cast<std::size_t>(tmpl::unbox(x));
-            all_has_value = all_has_value && std::get<I>(tmp_ret).has_value();
-        });
-
-        if (all_has_value) {
+        if (parse_success_sofar) {
             return_tuple_type parse_results;
-            tmpl::for_each(indices, [&](auto x) {
-                constexpr auto I = static_cast<std::size_t>(tmpl::unbox(x));
-                std::get<I>(parse_results) =
-                    std::move(std::get<I>(tmp_ret).value());
+            constexpr auto    out_indices =
+                tmpl::arithmetic_sequence<filtered_types.size()>();
+            tmpl::for_each(tmpl::zip(filtered_list, out_indices), [&](auto x) {
+                constexpr auto X    = tmpl::unbox(std::decay_t<decltype(x)>{});
+                constexpr auto outI = static_cast<std::size_t>(X.value());
+                constexpr auto filtered_tv = X.type();
+                constexpr auto parserI =
+                    static_cast<std::size_t>(tmpl::unbox(filtered_tv).value());
+                std::get<outI>(parse_results) =
+                    std::move(std::get<parserI>(tmp_ret).value());
             });
             ret = parse_results;
         }
@@ -226,6 +249,36 @@ private:
     R subrule;
     F func;
 };
+
+//======================================================================
+
+template<typename R>
+class DiscardRule : public Rule<DiscardRule<R>> {
+
+public:
+    DiscardRule(const Rule<R> &r) : subrule(r.self()) {}
+
+    template<typename T>
+    auto parse_impl(InputStream<T> &in) {
+
+        std::optional<null_parse> ret;
+        auto                      sub_ret = subrule.parse(in);
+
+        if (parse_success(sub_ret)) {
+            ret = null_parse{};
+        }
+
+        return ret;
+    }
+
+private:
+    R subrule;
+};
+
+template<typename R>
+auto operator~(const Rule<R> &r) {
+    return DiscardRule<R>(r);
+}
 
 CPPEG_NAMESPACE_CLOSE
 

@@ -3,6 +3,7 @@ set(SOURCE_FILES
   and_rule.cpp
   or_rule.cpp
   callback.cpp
+  discard.cpp
   catch_main.cpp
   catch.hpp
   )
