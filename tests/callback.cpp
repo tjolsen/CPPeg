@@ -21,3 +21,4 @@ TEST_CASE("Callback to set a flag") {
     CHECK(ret_is_nullopt);
     CHECK(ret.has_value());
 }
+2
