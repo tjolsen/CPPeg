@@ -44,7 +44,7 @@ struct AndRule : public Rule<AndRule<Subrules...>> {
         constexpr auto parse_result_type_indices =
             tmpl::zip(parse_result_type_list, indices);
         constexpr auto filtered_list =
-            tmpl::select_if(parse_result_type_indices, [](auto &&x) {
+            tmpl::select_if(parse_result_type_indices, [](auto &&x) constexpr {
                 return tmpl::unbox(x).type() != tmpl::type_list<null_parse>{};
             });
 
